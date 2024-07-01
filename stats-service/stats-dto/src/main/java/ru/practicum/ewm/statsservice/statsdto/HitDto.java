@@ -22,5 +22,5 @@ public class HitDto {
     private String ip;
 
     @JsonFormat(pattern = Constants.DATE_FORMAT_PATTERN)
-    private LocalDateTime timestamp;
+    private LocalDateTime requestTime;
 }
