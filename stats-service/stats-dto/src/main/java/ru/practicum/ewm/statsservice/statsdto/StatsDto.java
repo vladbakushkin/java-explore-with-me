@@ -1,11 +1,11 @@
 package ru.practicum.ewm.statsservice.statsdto;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
-@Setter
-@EqualsAndHashCode
-@ToString
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
