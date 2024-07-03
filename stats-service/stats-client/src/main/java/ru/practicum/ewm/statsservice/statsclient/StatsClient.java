@@ -11,6 +11,7 @@ import org.springframework.web.util.DefaultUriBuilderFactory;
 import ru.practicum.ewm.statsservice.statsdto.HitDto;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -36,12 +37,11 @@ public class StatsClient extends BaseClient {
                                            @Nullable List<String> uris,
                                            Boolean unique) {
         String path = "/stats?start={start}&end={end}&uris={uris}&unique={unique}";
-        Map<String, Object> params = Map.of(
-                "start", start,
-                "end", end,
-                "uris", uris == null ? "" : uris,
-                "unique", unique
-        );
+        Map<String, Object> params = new HashMap<>();
+        params.put("start", start);
+        params.put("end", end);
+        params.put("uris", uris);
+        params.put("unique", unique);
         return get(path, params);
     }
 }
