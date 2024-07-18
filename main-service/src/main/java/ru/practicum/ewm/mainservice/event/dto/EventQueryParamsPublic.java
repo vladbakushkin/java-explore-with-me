@@ -27,5 +27,5 @@ public class EventQueryParamsPublic {
 
     Boolean onlyAvailable;
 
-    String sort;
+    String sort = "EVENT_DATE";
 }

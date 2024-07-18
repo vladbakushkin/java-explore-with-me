@@ -9,6 +9,7 @@ import ru.practicum.ewm.mainservice.event.dto.EventFullDto;
 import ru.practicum.ewm.mainservice.event.dto.EventQueryParamsPublic;
 import ru.practicum.ewm.mainservice.event.service.EventService;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.validation.constraints.Positive;
 import javax.validation.constraints.PositiveOrZero;
@@ -25,16 +26,22 @@ public class EventPublicController {
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<EventFullDto> getEvents(@Valid EventQueryParamsPublic eventQueryParamsPublic,
+                                        HttpServletRequest request,
                                         @RequestParam(defaultValue = "0") @PositiveOrZero Integer from,
                                         @RequestParam(defaultValue = "10") @Positive Integer size) {
-        log.info("*----- public getting events with params: {}, {}, {}", eventQueryParamsPublic, from, size);
-        return eventService.getEvents(eventQueryParamsPublic, from, size);
+        String clientIp = request.getRemoteAddr();
+        String endpointPath = request.getRequestURI();
+        log.info("*----- public getting events with params: {}, {}, {}, {}, {}", eventQueryParamsPublic, from, size,
+                clientIp, endpointPath);
+        return eventService.getEvents(eventQueryParamsPublic, from, size, clientIp, endpointPath);
     }
 
     @GetMapping("{id}")
     @ResponseStatus(HttpStatus.OK)
-    public EventFullDto getEvent(@PathVariable Long id) {
-        log.info("*----- public getting event with id {}", id);
-        return eventService.getEvent(id);
+    public EventFullDto getEvent(@PathVariable Long id, HttpServletRequest request) {
+        String clientIp = request.getRemoteAddr();
+        String endpointPath = request.getRequestURI();
+        log.info("*----- public getting event with id {}, {}, {}", id, clientIp, endpointPath);
+        return eventService.getEvent(id, clientIp, endpointPath);
     }
 }

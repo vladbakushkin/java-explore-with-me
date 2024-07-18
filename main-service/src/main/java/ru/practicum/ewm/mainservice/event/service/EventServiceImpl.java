@@ -1,13 +1,15 @@
 package ru.practicum.ewm.mainservice.event.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.querydsl.core.BooleanBuilder;
-import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.ewm.mainservice.category.model.Category;
@@ -30,9 +32,14 @@ import ru.practicum.ewm.mainservice.participationrequest.model.RequestStatus;
 import ru.practicum.ewm.mainservice.participationrequest.repository.ParticipationRequestRepository;
 import ru.practicum.ewm.mainservice.user.model.User;
 import ru.practicum.ewm.mainservice.user.repository.UserRepository;
+import ru.practicum.ewm.statsservice.statsclient.StatsClient;
+import ru.practicum.ewm.statsservice.statsdto.HitDto;
+import ru.practicum.ewm.statsservice.statsdto.StatsDto;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,6 +55,9 @@ public class EventServiceImpl implements EventService {
     private final JPAQueryFactory queryFactory;
     private final ParticipationRequestRepository participationRequestRepository;
     private final ParticipationRequestMapper participationRequestMapper;
+
+    private final StatsClient statsClient;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -94,10 +104,12 @@ public class EventServiceImpl implements EventService {
 
         List<EventFullDto> eventFullDtoList = eventMapper.toEventFullDtoList(events);
 
-        // TODO добавление views к dto
-        List<EventFullDto> eventFullDtos = makeEventDtoListWithViews(eventFullDtoList);
-        log.info("#----- admin get events: {}", eventFullDtos);
-        return eventFullDtos;
+        Map<Long, Long> eventViews = getEventViews(events);
+        List<EventFullDto> eventFullDtoListWithViews = eventFullDtoList.stream()
+                .peek(eventFullDto -> eventFullDto.setViews(eventViews.get(eventFullDto.getId())))
+                .collect(Collectors.toList());
+        log.info("#----- admin get events: {}", eventFullDtoListWithViews);
+        return eventFullDtoListWithViews;
     }
 
     @Override
@@ -115,7 +127,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<EventFullDto> getEvents(EventQueryParamsPublic eventQueryParamsPublic, Integer from, Integer size) {
+    public List<EventFullDto> getEvents(EventQueryParamsPublic eventQueryParamsPublic, Integer from, Integer size,
+                                        String clientIp, String endpointPath) {
         QEvent event = QEvent.event;
         BooleanBuilder params = new BooleanBuilder();
 
@@ -160,47 +173,58 @@ public class EventServiceImpl implements EventService {
             params.and(participantAvailable.goe(0));
         }
 
-        OrderSpecifier<?> sort;
-        if (eventQueryParamsPublic.getSort() != null && eventQueryParamsPublic.getSort().equals("EVENT_DATE")) {
-            sort = event.eventDate.asc();
-        } else if (eventQueryParamsPublic.getSort() != null && eventQueryParamsPublic.getSort().equals("VIEWS")) {
-            // TODO добавить сортировку по views
-            sort = event.eventDate.desc();
-        } else {
-            sort = event.id.asc();
-        }
         List<Event> events = queryFactory.selectFrom(event)
                 .where(params)
-                .orderBy(sort)
+                .orderBy(event.eventDate.asc())
                 .offset(from)
                 .limit(size)
                 .fetch();
 
+        saveStats(endpointPath, clientIp);
+
         List<EventFullDto> eventFullDtoList = eventMapper.toEventFullDtoList(events);
-        log.info("#----- public get events: {}", eventFullDtoList);
-        return eventFullDtoList;
+
+        Map<Long, Long> eventViews = getEventViews(events);
+        List<EventFullDto> eventFullDtoListWithViews = eventFullDtoList.stream()
+                .peek(eventFullDto -> eventFullDto.setViews(eventViews.get(eventFullDto.getId())))
+                .collect(Collectors.toList());
+
+        if (eventQueryParamsPublic.getSort().equals("VIEWS")) {
+            Comparator<EventFullDto> byViews = Comparator.comparing(EventFullDto::getViews).reversed();
+            eventFullDtoListWithViews = eventFullDtoListWithViews.stream()
+                    .sorted(byViews)
+                    .collect(Collectors.toList());
+        }
+
+        log.info("#----- public get events: {}", eventFullDtoListWithViews);
+        return eventFullDtoListWithViews;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public EventFullDto getEvent(Long id) {
+    public EventFullDto getEvent(Long id, String clientIp, String endpointPath) {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Event with id = " + id + " not found"));
         if (event.getState() != EventState.PUBLISHED) {
             throw new NotFoundException("Event with id = " + id + " is not published");
         }
         EventFullDto eventFullDto = eventMapper.toEventFullDto(event);
+
+        saveStats(endpointPath, clientIp);
+
+        Map<Long, Long> eventViews = getEventViews(List.of(event));
+        eventFullDto.setViews(eventViews.get(event.getId()));
+
         log.info("#----- get public eventFullDto: {}", eventFullDto);
-        // TODO: информацию о том, что по этому эндпоинту был осуществлен и обработан запрос, нужно сохранить в сервисе статистики
-        eventFullDto.setViews(1L);
         return eventFullDto;
     }
 
     @Override
     @Transactional(readOnly = true)
     public EventFullDto getEvent(Long userId, Long eventId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User with id = " + userId + " not found"));
+        if (!userRepository.existsById(userId)) {
+            throw new NotFoundException("User with id = " + userId + " not found");
+        }
 
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Event with id = " + eventId + " not found"));
@@ -241,8 +265,9 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public EventFullDto updateEvent(Long userId, Long eventId, UpdateEventUserRequest updateEventUserRequest) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User with id = " + userId + " not found"));
+        if (!userRepository.existsById(userId)) {
+            throw new NotFoundException("User with id = " + userId + " not found");
+        }
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Event with id = " + eventId + " not found"));
 
@@ -272,13 +297,8 @@ public class EventServiceImpl implements EventService {
         if (updateEventUserRequest.getParticipantLimit() != null) {
             event.setParticipantLimit(updateEventUserRequest.getParticipantLimit());
         }
-        // TODO тернарный оператор
-        if (updateEventUserRequest.getStateAction() == EventStateActionUser.SEND_TO_REVIEW) {
-            event.setState(EventState.PENDING);
-        }
-        if (updateEventUserRequest.getStateAction() == EventStateActionUser.CANCEL_REVIEW) {
-            event.setState(EventState.CANCELED);
-        }
+        event.setState(updateEventUserRequest.getStateAction() == EventStateActionUser.SEND_TO_REVIEW ?
+                EventState.PENDING : EventState.CANCELED);
         if (updateEventUserRequest.getTitle() != null) {
             event.setTitle(updateEventUserRequest.getTitle());
         }
@@ -341,8 +361,6 @@ public class EventServiceImpl implements EventService {
         Event savedEvent = eventRepository.save(event);
         EventFullDto eventFullDto = eventMapper.toEventFullDto(savedEvent);
 
-        // TODO добавление просмотров к dto
-
         log.info("#----- admin updated event: {}", eventFullDto);
         return eventFullDto;
     }
@@ -350,9 +368,9 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public List<ParticipationRequestDto> getEventParticipants(Long userId, Long eventId) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User with id = " + userId + " not found"));
+        if (!userRepository.existsById(userId)) {
+            throw new NotFoundException("User with id = " + userId + " not found");
+        }
 
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Event with id = " + eventId + " not found"));
@@ -418,9 +436,35 @@ public class EventServiceImpl implements EventService {
         return eventRequestStatusUpdateResult;
     }
 
-    private List<EventFullDto> makeEventDtoListWithViews(List<EventFullDto> events) {
-        return events.stream()
-                .peek(event -> event.setViews(1L))
+    private void saveStats(String endpointPath, String clientIp) {
+        LocalDateTime now = LocalDateTime.now();
+        String app = "ewm-main-service";
+        HitDto hitDto = new HitDto(app, endpointPath, clientIp, now);
+        statsClient.saveStats(hitDto);
+    }
+
+    private Map<Long, Long> getEventViews(List<Event> events) {
+        List<String> uris = events.stream()
+                .map(event -> "/events/" + event.getId())
                 .collect(Collectors.toList());
+
+        List<LocalDateTime> eventCreationsTime = events.stream()
+                .map(Event::getCreatedOn)
+                .sorted()
+                .collect(Collectors.toList());
+
+        LocalDateTime startTime = eventCreationsTime.get(0);
+        LocalDateTime endTime = LocalDateTime.now().plusHours(1);
+
+        ResponseEntity<Object> response = statsClient.getStats(startTime, endTime, uris, true);
+
+        List<StatsDto> statsDtoList = objectMapper.convertValue(response.getBody(), new TypeReference<>() {
+        });
+
+        return statsDtoList.stream()
+                .collect(Collectors.toMap(
+                        statsDto -> Long.parseLong(statsDto.getUri().substring("/events/".length())),
+                        StatsDto::getHits
+                ));
     }
 }

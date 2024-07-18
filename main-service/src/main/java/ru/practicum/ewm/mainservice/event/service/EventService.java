@@ -10,11 +10,12 @@ public interface EventService {
 
     List<EventFullDto> getEvents(Long userId, Integer from, Integer size);
 
-    List<EventFullDto> getEvents(EventQueryParamsPublic eventQueryParamsPublic, Integer from, Integer size);
+    List<EventFullDto> getEvents(EventQueryParamsPublic eventQueryParamsPublic, Integer from, Integer size,
+                                 String clientIp, String endpointPath);
 
     EventFullDto getEvent(Long userId, Long eventId);
 
-    EventFullDto getEvent(Long id);
+    EventFullDto getEvent(Long id, String clientIp, String endpointPath);
 
     EventFullDto addEvent(Long userId, NewEventDto newEventDto);
 

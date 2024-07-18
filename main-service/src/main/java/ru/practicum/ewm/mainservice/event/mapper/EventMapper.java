@@ -5,7 +5,6 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 import ru.practicum.ewm.mainservice.event.dto.EventFullDto;
-import ru.practicum.ewm.mainservice.event.dto.EventShortDto;
 import ru.practicum.ewm.mainservice.event.dto.NewEventDto;
 import ru.practicum.ewm.mainservice.event.model.Event;
 import ru.practicum.ewm.mainservice.event.model.Location;
@@ -16,8 +15,6 @@ import java.util.List;
 public interface EventMapper {
     @Mapping(target = "category", ignore = true)
     Event toEvent(NewEventDto newEventDto);
-
-    EventShortDto toEventShortDto(Event event);
 
     @Mapping(target = "location", qualifiedByName = "getLocation", source = "event")
     EventFullDto toEventFullDto(Event event);
