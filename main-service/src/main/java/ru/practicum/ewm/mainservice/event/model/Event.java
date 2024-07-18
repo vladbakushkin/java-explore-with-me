@@ -62,7 +62,7 @@ public class Event {
 
     // Количество одобренных заявок на участие в данном событии
     @Column(name = "confirmed_requests", nullable = false)
-    private Long confirmedRequests;
+    private Integer confirmedRequests;
 
     // Список состояний жизненного цикла события
     @Column(nullable = false)

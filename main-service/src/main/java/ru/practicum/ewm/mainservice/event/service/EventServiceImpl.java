@@ -1,6 +1,8 @@
 package ru.practicum.ewm.mainservice.event.service;
 
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +20,7 @@ import ru.practicum.ewm.mainservice.event.model.state.EventState;
 import ru.practicum.ewm.mainservice.event.model.state.EventStateActionAdmin;
 import ru.practicum.ewm.mainservice.event.model.state.EventStateActionUser;
 import ru.practicum.ewm.mainservice.event.repository.EventRepository;
+import ru.practicum.ewm.mainservice.exception.BadRequestException;
 import ru.practicum.ewm.mainservice.exception.ConflictException;
 import ru.practicum.ewm.mainservice.exception.NotFoundException;
 import ru.practicum.ewm.mainservice.participationrequest.dto.ParticipationRequestDto;
@@ -146,11 +149,29 @@ public class EventServiceImpl implements EventService {
         }
 
         if (rangeStart != null && rangeEnd != null) {
+            if (rangeStart.isAfter(rangeEnd)) {
+                throw new BadRequestException("End time must be after start time");
+            }
             params.and(event.eventDate.between(rangeStart, rangeEnd));
         }
 
+        if (eventQueryParamsPublic.getOnlyAvailable() != null && eventQueryParamsPublic.getOnlyAvailable()) {
+            NumberExpression<Integer> participantAvailable = event.participantLimit.subtract(event.confirmedRequests);
+            params.and(participantAvailable.goe(0));
+        }
+
+        OrderSpecifier<?> sort;
+        if (eventQueryParamsPublic.getSort() != null && eventQueryParamsPublic.getSort().equals("EVENT_DATE")) {
+            sort = event.eventDate.asc();
+        } else if (eventQueryParamsPublic.getSort() != null && eventQueryParamsPublic.getSort().equals("VIEWS")) {
+            // TODO добавить сортировку по views
+            sort = event.eventDate.desc();
+        } else {
+            sort = event.id.asc();
+        }
         List<Event> events = queryFactory.selectFrom(event)
                 .where(params)
+                .orderBy(sort)
                 .offset(from)
                 .limit(size)
                 .fetch();
@@ -204,7 +225,7 @@ public class EventServiceImpl implements EventService {
 
         event.setState(EventState.PENDING);
 
-        event.setConfirmedRequests(0L);
+        event.setConfirmedRequests(0);
 
         event.setLat(newEventDto.getLocation().getLat());
         event.setLon(newEventDto.getLocation().getLon());
@@ -384,7 +405,7 @@ public class EventServiceImpl implements EventService {
         participationRequestRepository.saveAll(confirmedRequests);
         participationRequestRepository.saveAll(rejectedRequests);
 
-        event.setConfirmedRequests((long) confirmedRequests.size());
+        event.setConfirmedRequests(confirmedRequests.size());
         eventRepository.save(event);
 
         EventRequestStatusUpdateResult eventRequestStatusUpdateResult = new EventRequestStatusUpdateResult();
