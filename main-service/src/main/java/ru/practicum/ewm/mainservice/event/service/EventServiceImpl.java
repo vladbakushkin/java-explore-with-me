@@ -86,20 +86,20 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<EventFullDto> getEvents(Long userId, Integer from, Integer size) {
+    public List<EventShortDto> getEvents(Long userId, Integer from, Integer size) {
         int page = from / size;
         Pageable pageable = PageRequest.of(page, size);
 
         List<Event> events = eventRepository.findAllByInitiatorId(userId, pageable);
 
-        List<EventFullDto> eventFullDtoList = eventMapper.toEventFullDtoList(events);
-        log.info("#----- private get events: {}", eventFullDtoList);
-        return eventFullDtoList;
+        List<EventShortDto> eventShortDtoList = eventMapper.toEventShortDtoList(events);
+        log.info("#----- private get events: {}", eventShortDtoList);
+        return eventShortDtoList;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<EventFullDto> getEvents(EventQueryParamsPublic query, Integer from, Integer size,
+    public List<EventShortDto> getEvents(EventQueryParamsPublic query, Integer from, Integer size,
                                         String clientIp, String endpointPath) {
         QEvent event = QEvent.event;
 
@@ -116,22 +116,22 @@ public class EventServiceImpl implements EventService {
 
         saveStats(endpointPath, clientIp);
 
-        List<EventFullDto> eventFullDtoList = eventMapper.toEventFullDtoList(events);
+        List<EventShortDto> eventShortDtoList = eventMapper.toEventShortDtoList(events);
 
         Map<Long, Long> eventViews = getEventViews(events);
-        List<EventFullDto> eventFullDtoListWithViews = eventFullDtoList.stream()
-                .peek(eventFullDto -> eventFullDto.setViews(eventViews.get(eventFullDto.getId())))
+        List<EventShortDto> eventShortDtoListWithViews = eventShortDtoList.stream()
+                .peek(eventShortDto -> eventShortDto.setViews(eventViews.get(eventShortDto.getId())))
                 .collect(Collectors.toList());
 
         if (query.getSort().equals("VIEWS")) {
-            Comparator<EventFullDto> byViews = Comparator.comparing(EventFullDto::getViews).reversed();
-            eventFullDtoListWithViews = eventFullDtoListWithViews.stream()
+            Comparator<EventShortDto> byViews = Comparator.comparing(EventShortDto::getViews).reversed();
+            eventShortDtoListWithViews = eventShortDtoListWithViews.stream()
                     .sorted(byViews)
                     .collect(Collectors.toList());
         }
 
-        log.info("#----- public get events: {}", eventFullDtoListWithViews);
-        return eventFullDtoListWithViews;
+        log.info("#----- public get events: {}", eventShortDtoListWithViews);
+        return eventShortDtoListWithViews;
     }
 
     @Override

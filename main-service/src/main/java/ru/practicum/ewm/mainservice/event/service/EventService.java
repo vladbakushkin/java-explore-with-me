@@ -8,9 +8,9 @@ import java.util.List;
 public interface EventService {
     List<EventFullDto> getEvents(EventQueryParamsAdmin eventQueryParamsAdmin, Integer from, Integer size);
 
-    List<EventFullDto> getEvents(Long userId, Integer from, Integer size);
+    List<EventShortDto> getEvents(Long userId, Integer from, Integer size);
 
-    List<EventFullDto> getEvents(EventQueryParamsPublic eventQueryParamsPublic, Integer from, Integer size,
+    List<EventShortDto> getEvents(EventQueryParamsPublic eventQueryParamsPublic, Integer from, Integer size,
                                  String clientIp, String endpointPath);
 
     EventFullDto getEvent(Long userId, Long eventId);

@@ -23,7 +23,7 @@ public class EventShortDto {
     private Long confirmedRequests;
 
     @JsonFormat(pattern = Constants.DATE_FORMAT_PATTERN)
-    private LocalDateTime confirmedDateTime;
+    private LocalDateTime eventDate;
 
     private Long id;
 

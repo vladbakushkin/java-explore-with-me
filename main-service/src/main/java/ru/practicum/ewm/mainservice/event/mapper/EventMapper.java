@@ -5,6 +5,7 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 import ru.practicum.ewm.mainservice.event.dto.EventFullDto;
+import ru.practicum.ewm.mainservice.event.dto.EventShortDto;
 import ru.practicum.ewm.mainservice.event.dto.NewEventDto;
 import ru.practicum.ewm.mainservice.event.model.Event;
 import ru.practicum.ewm.mainservice.event.model.Location;
@@ -20,6 +21,8 @@ public interface EventMapper {
     EventFullDto toEventFullDto(Event event);
 
     List<EventFullDto> toEventFullDtoList(List<Event> events);
+
+    List<EventShortDto> toEventShortDtoList(List<Event> events);
 
     @Named("getLocation")
     default Location getLocation(Event event) {

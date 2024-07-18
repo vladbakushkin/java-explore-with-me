@@ -24,7 +24,7 @@ public class EventPrivateController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<EventFullDto> getEvents(@PathVariable Long userId,
+    public List<EventShortDto> getEvents(@PathVariable Long userId,
                                         @PositiveOrZero @RequestParam(defaultValue = "0") Integer from,
                                         @Positive @RequestParam(defaultValue = "10") Integer size) {
         log.info("*----- private getting events from: {} to: {}, userId: {}", from, size, userId);

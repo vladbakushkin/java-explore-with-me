@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.ewm.mainservice.event.dto.EventFullDto;
 import ru.practicum.ewm.mainservice.event.dto.EventQueryParamsPublic;
+import ru.practicum.ewm.mainservice.event.dto.EventShortDto;
 import ru.practicum.ewm.mainservice.event.service.EventService;
 
 import javax.servlet.http.HttpServletRequest;
@@ -22,10 +23,10 @@ public class EventPublicController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<EventFullDto> getEvents(EventQueryParamsPublic eventQueryParamsPublic,
-                                        HttpServletRequest request,
-                                        @RequestParam(defaultValue = "0") @PositiveOrZero Integer from,
-                                        @RequestParam(defaultValue = "10") @Positive Integer size) {
+    public List<EventShortDto> getEvents(EventQueryParamsPublic eventQueryParamsPublic,
+                                         HttpServletRequest request,
+                                         @RequestParam(defaultValue = "0") @PositiveOrZero Integer from,
+                                         @RequestParam(defaultValue = "10") @Positive Integer size) {
         String clientIp = request.getRemoteAddr();
         String endpointPath = request.getRequestURI();
         log.info("*----- public getting events with params: {}, {}, {}, {}, {}", eventQueryParamsPublic, from, size,
