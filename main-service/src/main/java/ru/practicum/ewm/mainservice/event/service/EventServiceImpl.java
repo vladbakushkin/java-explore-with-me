@@ -62,40 +62,11 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<EventFullDto> getEvents(EventQueryParamsAdmin eventQueryParamsAdmin, Integer from, Integer size) {
+    public List<EventFullDto> getEvents(EventQueryParamsAdmin query, Integer from, Integer size) {
         QEvent event = QEvent.event;
-        BooleanBuilder params = new BooleanBuilder();
 
-        List<Long> users = eventQueryParamsAdmin.getUsers();
-        if (users != null && users.isEmpty()) {
-            params.and(event.initiator.id.in(users));
-        }
-
-        List<String> states = eventQueryParamsAdmin.getStates();
-        if (states != null && !states.isEmpty()) {
-            List<EventState> eventStates = states.stream()
-                    .map(EventState::valueOf).collect(Collectors.toList());
-            params.and((event.state.in(eventStates)));
-        }
-
-        List<Long> categories = eventQueryParamsAdmin.getCategories();
-        if (categories != null && !categories.isEmpty()) {
-            params.and(event.category.id.in(categories));
-        }
-
-        LocalDateTime rangeStart = eventQueryParamsAdmin.getRangeStart();
-        if (rangeStart != null) {
-            params.and(event.eventDate.after(rangeStart));
-        }
-
-        LocalDateTime rangeEnd = eventQueryParamsAdmin.getRangeEnd();
-        if (rangeEnd != null) {
-            params.and(event.eventDate.before(rangeEnd));
-        }
-
-        if (rangeStart != null && rangeEnd != null) {
-            params.and(event.eventDate.between(rangeStart, rangeEnd));
-        }
+        BooleanBuilder params = makeQuery(event, query.getUsers(), query.getStates(), query.getCategories(),
+                query.getRangeStart(), query.getRangeEnd(), null, null, null);
 
         List<Event> events = queryFactory.selectFrom(event)
                 .where(params)
@@ -122,57 +93,19 @@ public class EventServiceImpl implements EventService {
         List<Event> events = eventRepository.findAllByInitiatorId(userId, pageable);
 
         List<EventFullDto> eventFullDtoList = eventMapper.toEventFullDtoList(events);
-        log.info("#----- ???private get events: {}", eventFullDtoList);
+        log.info("#----- private get events: {}", eventFullDtoList);
         return eventFullDtoList;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<EventFullDto> getEvents(EventQueryParamsPublic eventQueryParamsPublic, Integer from, Integer size,
+    public List<EventFullDto> getEvents(EventQueryParamsPublic query, Integer from, Integer size,
                                         String clientIp, String endpointPath) {
         QEvent event = QEvent.event;
-        BooleanBuilder params = new BooleanBuilder();
 
         // в публичном эндпоинте только опубликованные события
-        params.and(event.state.eq(EventState.PUBLISHED));
-
-        String text = eventQueryParamsPublic.getText();
-        if (text != null) {
-            params.and(event.annotation.containsIgnoreCase(text));
-            params.or(event.description.containsIgnoreCase(text));
-        }
-
-        List<Long> categories = eventQueryParamsPublic.getCategories();
-        if (categories != null && !categories.isEmpty()) {
-            params.and(event.category.id.in(categories));
-        }
-
-        Boolean paid = eventQueryParamsPublic.getPaid();
-        if (paid != null) {
-            params.and((event.paid.eq(paid)));
-        }
-
-        LocalDateTime rangeStart = eventQueryParamsPublic.getRangeStart();
-        if (rangeStart != null) {
-            params.and(event.eventDate.after(rangeStart));
-        }
-
-        LocalDateTime rangeEnd = eventQueryParamsPublic.getRangeEnd();
-        if (rangeEnd != null) {
-            params.and(event.eventDate.before(rangeEnd));
-        }
-
-        if (rangeStart != null && rangeEnd != null) {
-            if (rangeStart.isAfter(rangeEnd)) {
-                throw new BadRequestException("End time must be after start time");
-            }
-            params.and(event.eventDate.between(rangeStart, rangeEnd));
-        }
-
-        if (eventQueryParamsPublic.getOnlyAvailable() != null && eventQueryParamsPublic.getOnlyAvailable()) {
-            NumberExpression<Integer> participantAvailable = event.participantLimit.subtract(event.confirmedRequests);
-            params.and(participantAvailable.goe(0));
-        }
+        BooleanBuilder params = makeQuery(event, null, List.of("PUBLISHED"), query.getCategories(),
+                query.getRangeStart(), query.getRangeEnd(), query.getText(), query.getPaid(), query.getOnlyAvailable());
 
         List<Event> events = queryFactory.selectFrom(event)
                 .where(params)
@@ -190,7 +123,7 @@ public class EventServiceImpl implements EventService {
                 .peek(eventFullDto -> eventFullDto.setViews(eventViews.get(eventFullDto.getId())))
                 .collect(Collectors.toList());
 
-        if (eventQueryParamsPublic.getSort().equals("VIEWS")) {
+        if (query.getSort().equals("VIEWS")) {
             Comparator<EventFullDto> byViews = Comparator.comparing(EventFullDto::getViews).reversed();
             eventFullDtoListWithViews = eventFullDtoListWithViews.stream()
                     .sorted(byViews)
@@ -297,6 +230,7 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    @Transactional
     public EventFullDto updateEvent(Long eventId, UpdateEventAdminRequest request) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Event with id = " + eventId + " not found"));
@@ -401,6 +335,56 @@ public class EventServiceImpl implements EventService {
 
         log.info("#----- private requests updated: {}", eventRequestStatusUpdateResult);
         return eventRequestStatusUpdateResult;
+    }
+
+    private BooleanBuilder makeQuery(QEvent event, List<Long> users, List<String> states, List<Long> categories,
+                                     LocalDateTime rangeStart, LocalDateTime rangeEnd, String text,
+                                     Boolean paid, Boolean onlyAvailable) {
+        BooleanBuilder params = new BooleanBuilder();
+
+        if (text != null) {
+            params.or(event.annotation.containsIgnoreCase(text));
+            params.or(event.description.containsIgnoreCase(text));
+        }
+
+        if (categories != null && !categories.isEmpty()) {
+            params.and(event.category.id.in(categories));
+        }
+
+        if (paid != null) {
+            params.and((event.paid.eq(paid)));
+        }
+
+        if (rangeStart != null) {
+            params.and(event.eventDate.after(rangeStart));
+        }
+
+        if (rangeEnd != null) {
+            params.and(event.eventDate.before(rangeEnd));
+        }
+
+        if (rangeStart != null && rangeEnd != null) {
+            if (rangeStart.isAfter(rangeEnd)) {
+                throw new BadRequestException("End time must be after start time");
+            }
+            params.and(event.eventDate.between(rangeStart, rangeEnd));
+        }
+
+        if (onlyAvailable != null && onlyAvailable) {
+            NumberExpression<Integer> participantAvailable = event.participantLimit.subtract(event.confirmedRequests);
+            params.and(participantAvailable.goe(0));
+        }
+
+        if (users != null && users.isEmpty()) {
+            params.and(event.initiator.id.in(users));
+        }
+
+        if (states != null && !states.isEmpty()) {
+            List<EventState> eventStates = states.stream()
+                    .map(EventState::valueOf).collect(Collectors.toList());
+            params.and((event.state.in(eventStates)));
+        }
+        return params;
     }
 
     private Event update(Event eventToUpdate, String annotation, Long categoryId, String description,
