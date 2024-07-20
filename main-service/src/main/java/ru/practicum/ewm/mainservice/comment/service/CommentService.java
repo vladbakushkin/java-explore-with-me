@@ -13,7 +13,7 @@ public interface CommentService {
 
     CommentDto getComment(Long commentId);
 
-    CommentDto addComment(Long userId, NewCommentDto newCommentDto);
+    CommentDto addComment(Long userId, Long eventId, NewCommentDto newCommentDto);
 
     CommentDto updateComment(Long userId, Long commentId, NewCommentDto commentDto);
 
