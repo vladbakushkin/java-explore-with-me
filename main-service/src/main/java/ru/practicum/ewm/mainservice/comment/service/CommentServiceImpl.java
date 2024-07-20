@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.ewm.mainservice.comment.dto.CommentDto;
 import ru.practicum.ewm.mainservice.comment.dto.CommentQueryParams;
 import ru.practicum.ewm.mainservice.comment.dto.NewCommentDto;
@@ -41,6 +42,7 @@ public class CommentServiceImpl implements CommentService {
     private final JPAQueryFactory queryFactory;
 
     @Override
+    @Transactional(readOnly = true)
     public List<CommentDto> getComments(Long userId, Integer from, Integer size) {
         int page = from / size;
         Pageable pageable = PageRequest.of(page, size);
@@ -56,6 +58,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CommentDto> getComments(CommentQueryParams queryParams, Integer from, Integer size) {
         QComment comment = QComment.comment;
 
@@ -107,6 +110,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CommentDto getComment(Long commentId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new NotFoundException("Comment with id = " + commentId + " not found"));
@@ -117,6 +121,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
+    @Transactional
     public CommentDto addComment(Long userId, Long eventId, NewCommentDto newCommentDto) {
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User with id = " + userId + " not found"));
@@ -139,6 +144,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
+    @Transactional
     public CommentDto updateComment(Long userId, Long commentId, NewCommentDto newCommentDto) {
         if (!userRepository.existsById(userId)) {
             throw new NotFoundException("User with id = " + userId + " not found");
@@ -156,6 +162,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
+    @Transactional
     public void deleteComment(Long userId, Long commentId) {
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User with id = " + userId + " not found"));
@@ -171,6 +178,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
+    @Transactional
     public void deleteComment(Long commentId) {
         commentRepository.deleteById(commentId);
     }

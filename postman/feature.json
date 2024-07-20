@@ -845,7 +845,7 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}/users/1/comments?eventId=2",
+                          "raw": "{{baseUrl}}/users/1/comments?eventId=108",
 							"host": [
 								"{{baseUrl}}"
 							],
@@ -857,7 +857,7 @@
 							"query": [
 								{
 									"key": "eventId",
-									"value": "2"
+                                  "value": "108"
 								}
 							]
 						}
