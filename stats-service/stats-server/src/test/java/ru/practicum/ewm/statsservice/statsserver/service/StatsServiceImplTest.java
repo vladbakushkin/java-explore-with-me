@@ -133,15 +133,6 @@ class StatsServiceImplTest {
     }
 
     @Test
-    void getStats_StartEqualsEnd_ThrowsBadRequestException() {
-        // given
-        // when
-        // then
-        assertThrows(BadRequestException.class,
-                () -> statsService.getStats(startTime, startTime, null, false));
-    }
-
-    @Test
     void getStats_StartAfterEnd_ReturnsListOfStatsDto() {
         // given
         // when

@@ -33,7 +33,7 @@ public class StatsServiceImpl implements StatsService {
     @Override
     @Transactional(readOnly = true)
     public List<StatsDto> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, Boolean unique) {
-        if (start.isEqual(end) || start.isAfter(end)) {
+        if (start.isAfter(end)) {
             throw new BadRequestException("Start time must be earlier than end time");
         }
         if (uris == null || uris.isEmpty()) {
