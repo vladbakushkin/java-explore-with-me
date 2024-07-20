@@ -17,7 +17,7 @@ public class Comment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "comment_text", nullable = false)
     private String text;
 
     @JoinColumn(name = "event_id", nullable = false)
