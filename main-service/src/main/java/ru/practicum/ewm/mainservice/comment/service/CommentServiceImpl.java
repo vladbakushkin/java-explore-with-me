@@ -47,8 +47,7 @@ public class CommentServiceImpl implements CommentService {
         int page = from / size;
         Pageable pageable = PageRequest.of(page, size);
 
-        User author = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User with id = " + userId + " not found"));
+        User author = findUserById(userId);
 
         List<Comment> comments = commentRepository.findAllByAuthorId(author.getId(), pageable);
 
@@ -112,8 +111,7 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional(readOnly = true)
     public CommentDto getComment(Long commentId) {
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new NotFoundException("Comment with id = " + commentId + " not found"));
+        Comment comment = findCommentById(commentId);
 
         CommentDto commentDto = commentMapper.toCommentDto(comment);
         log.info("#----- got comment {}", commentDto);
@@ -123,8 +121,7 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional
     public CommentDto addComment(Long userId, Long eventId, NewCommentDto newCommentDto) {
-        User author = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User with id = " + userId + " not found"));
+        User author = findUserById(userId);
 
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Event with id = " + eventId + " not found"));
@@ -150,8 +147,7 @@ public class CommentServiceImpl implements CommentService {
             throw new NotFoundException("User with id = " + userId + " not found");
         }
 
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new NotFoundException("Comment with id = " + commentId + " not found"));
+        Comment comment = findCommentById(commentId);
 
         comment.setText(newCommentDto.getText());
         Comment savedComment = commentRepository.save(comment);
@@ -163,12 +159,9 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     @Transactional
-    public void deleteComment(Long userId, Long commentId) {
-        User author = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User with id = " + userId + " not found"));
-
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new NotFoundException("Comment with id = " + commentId + " not found"));
+    public void deleteCommentByAuthor(Long userId, Long commentId) {
+        User author = findUserById(userId);
+        Comment comment = findCommentById(commentId);
 
         if (!Objects.equals(author.getId(), comment.getAuthor().getId())) {
             throw new ConflictException("Only the author can delete this comment");
@@ -179,7 +172,17 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     @Transactional
-    public void deleteComment(Long commentId) {
+    public void deleteCommentByAdmin(Long commentId) {
         commentRepository.deleteById(commentId);
+    }
+
+    private Comment findCommentById(Long commentId) {
+        return commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("Comment with id = " + commentId + " not found"));
+    }
+
+    private User findUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User with id = " + userId + " not found"));
     }
 }
