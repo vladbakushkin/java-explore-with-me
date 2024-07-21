@@ -1,12 +1,11 @@
 package ru.practicum.ewm.mainservice.comment.service;
 
 import com.querydsl.core.BooleanBuilder;
-import com.querydsl.core.types.OrderSpecifier;
-import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.ewm.mainservice.comment.dto.CommentDto;
@@ -38,8 +37,6 @@ public class CommentServiceImpl implements CommentService {
 
     private final UserRepository userRepository;
     private final EventRepository eventRepository;
-
-    private final JPAQueryFactory queryFactory;
 
     @Override
     @Transactional(readOnly = true)
@@ -93,15 +90,12 @@ public class CommentServiceImpl implements CommentService {
             params.and(comment.createdOn.between(rangeStart, rangeEnd));
         }
 
-        OrderSpecifier<LocalDateTime> sort = queryParams.getSort().equals("DESC") ?
-                comment.createdOn.desc() : comment.createdOn.asc();
+        int page = from / size;
+        Sort sort = queryParams.getSort().equals("DESC") ?
+                Sort.by("createdOn").descending() : Sort.by("createdOn").ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
 
-        List<Comment> comments = queryFactory.selectFrom(comment)
-                .where(params)
-                .orderBy(sort)
-                .offset(from)
-                .limit(size)
-                .fetch();
+        List<Comment> comments = commentRepository.findAll(params, pageable).getContent();
 
         List<CommentDto> commentDtoList = commentMapper.toCommentDtoList(comments);
         log.info("#----- public got comments {}", commentDtoList);
