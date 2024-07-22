@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.ewm.mainservice.category.model.Category;
 import ru.practicum.ewm.mainservice.category.repository.CategoryRepository;
+import ru.practicum.ewm.mainservice.comment.mapper.CommentMapper;
+import ru.practicum.ewm.mainservice.comment.model.Comment;
+import ru.practicum.ewm.mainservice.comment.repository.CommentRepository;
 import ru.practicum.ewm.mainservice.event.dto.*;
 import ru.practicum.ewm.mainservice.event.mapper.EventMapper;
 import ru.practicum.ewm.mainservice.event.model.Event;
@@ -60,6 +63,9 @@ public class EventServiceImpl implements EventService {
     private final StatsClient statsClient;
     private final ObjectMapper objectMapper;
 
+    private final CommentRepository commentRepository;
+    private final CommentMapper commentMapper;
+
     @Override
     @Transactional(readOnly = true)
     public List<EventFullDto> getEvents(EventQueryParamsAdmin query, Integer from, Integer size) {
@@ -100,7 +106,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public List<EventShortDto> getEvents(EventQueryParamsPublic query, Integer from, Integer size,
-                                        String clientIp, String endpointPath) {
+                                         String clientIp, String endpointPath) {
         QEvent event = QEvent.event;
 
         // в публичном эндпоинте только опубликованные события
@@ -149,6 +155,9 @@ public class EventServiceImpl implements EventService {
         Map<Long, Long> eventViews = getEventViews(List.of(event));
         eventFullDto.setViews(eventViews.get(event.getId()));
 
+        List<Comment> commentsByEvent = commentRepository.findAllByEventId(event.getId());
+        eventFullDto.setComments(commentMapper.toCommentDtoList(commentsByEvent));
+
         log.info("#----- get public eventFullDto: {}", eventFullDto);
         return eventFullDto;
     }
@@ -164,6 +173,10 @@ public class EventServiceImpl implements EventService {
                 .orElseThrow(() -> new NotFoundException("Event with id = " + eventId + " not found"));
 
         EventFullDto eventFullDto = eventMapper.toEventFullDto(event);
+
+        List<Comment> commentsByEvent = commentRepository.findAllByEventId(event.getId());
+        eventFullDto.setComments(commentMapper.toCommentDtoList(commentsByEvent));
+
         log.info("#----- public get event: {}", eventFullDto);
         return eventFullDto;
     }
